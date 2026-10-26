@@ -9,6 +9,24 @@ namespace ResumeJobMatching.Api.Services.Matching;
 public class ResumeMatchingService
 {
     private readonly ApplicationDbContext _context;
+    private static readonly Dictionary<string, double> SkillWeights =
+    new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["C#"] = 30,
+        ["ASP.NET Core"] = 30,
+        ["SQL Server"] = 20,
+        ["Git"] = 10,
+        ["Docker"] = 10
+    };
+
+private const double DefaultSkillWeight = 10;
+
+private static double GetSkillWeight(string skill)
+{
+    return SkillWeights.TryGetValue(skill.Trim(), out var weight)
+        ? weight
+        : DefaultSkillWeight;
+}
 
     public ResumeMatchingService(ApplicationDbContext context)
     {
@@ -127,11 +145,15 @@ public class ResumeMatchingService
             }
         }
 
-        var matchScore = requiredSkills.Count == 0
-            ? 0
-            : Math.Round(
-                matchingSkills.Count * 100.0 / requiredSkills.Count,
-                2);
+        var totalWeight = requiredSkills.Sum(GetSkillWeight);
+
+var matchedWeight = matchingSkills.Sum(GetSkillWeight);
+
+var matchScore = totalWeight == 0
+    ? 0
+    : Math.Round(
+        matchedWeight * 100.0 / totalWeight,
+        2);
 
         var summary = requiredSkills.Count == 0
             ? "No required skills were specified for this job."

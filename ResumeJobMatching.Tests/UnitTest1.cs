@@ -213,7 +213,7 @@ public class UnitTest1
 
         Assert.NotNull(result);
 
-        Assert.Equal(50.0, result.MatchScore);
+        Assert.Equal(57.14, result.MatchScore);
 
         Assert.Equal(
             new[] { "C#", "REST APIs" },
@@ -358,7 +358,7 @@ public async Task MatchAsync_DuplicateRequiredSkills_DoesNotInflateScore()
     var result = await service.MatchAsync(1, 1, 1);
 
     Assert.NotNull(result);
-    Assert.Equal(50.0, result.MatchScore);
+    Assert.Equal(60.0, result.MatchScore);
     Assert.Equal(new[] { "C#" }, result.MatchingSkills);
     Assert.Equal(new[] { "SQL Server" }, result.MissingSkills);
     Assert.Equal("Matched 1 of 2 required skills.", result.Summary);
@@ -529,7 +529,7 @@ public async Task MatchAllJobsAsync_ReturnsJobsRankedByMatchScore()
     Assert.Equal(100, results[0].MatchScore);
 
     Assert.Equal(3, results[1].JobId);
-    Assert.Equal(50, results[1].MatchScore);
+    Assert.Equal(75, results[1].MatchScore);
 
     Assert.Equal(1, results[2].JobId);
     Assert.Equal(0, results[2].MatchScore);
@@ -639,6 +639,75 @@ public void ContainsSkill_RelatedButDifferentSkills_ReturnsFalse(
     string skill)
 {
     Assert.False(SkillMatcher.ContainsSkill(resumeText, skill));
+}
+
+[Fact]
+public async Task MatchAsync_HighWeightMatchedSkill_ProducesWeightedScore()
+{
+    using var context = CreateDbContext();
+
+    context.Users.Add(CreateUser(1));
+
+    context.Resumes.Add(
+        CreateResume(1, 1, "Experienced in C#"));
+
+    context.Jobs.Add(
+        CreateJob(1, "C#, Git"));
+
+    await context.SaveChangesAsync();
+
+    var service = new ResumeMatchingService(context);
+
+    var result = await service.MatchAsync(1, 1, 1);
+
+    Assert.NotNull(result);
+    Assert.Equal(75.0, result.MatchScore);
+}
+
+[Fact]
+public async Task MatchAsync_LowWeightMatchedSkill_ProducesWeightedScore()
+{
+    using var context = CreateDbContext();
+
+    context.Users.Add(CreateUser(1));
+
+    context.Resumes.Add(
+        CreateResume(1, 1, "Experienced in Git"));
+
+    context.Jobs.Add(
+        CreateJob(1, "C#, Git"));
+
+    await context.SaveChangesAsync();
+
+    var service = new ResumeMatchingService(context);
+
+    var result = await service.MatchAsync(1, 1, 1);
+
+    Assert.NotNull(result);
+    Assert.Equal(25.0, result.MatchScore);
+}
+
+[Fact]
+public async Task MatchAsync_UnlistedSkills_UseDefaultWeight()
+{
+    using var context = CreateDbContext();
+
+    context.Users.Add(CreateUser(1));
+
+    context.Resumes.Add(
+        CreateResume(1, 1, "Experienced in Python"));
+
+    context.Jobs.Add(
+        CreateJob(1, "Python, Java"));
+
+    await context.SaveChangesAsync();
+
+    var service = new ResumeMatchingService(context);
+
+    var result = await service.MatchAsync(1, 1, 1);
+
+    Assert.NotNull(result);
+    Assert.Equal(50.0, result.MatchScore);
 }
 
 
