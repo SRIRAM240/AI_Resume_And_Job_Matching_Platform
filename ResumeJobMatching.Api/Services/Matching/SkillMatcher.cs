@@ -1,12 +1,38 @@
+
 using System.Text.RegularExpressions;
 
 namespace ResumeJobMatching.Api.Services.Matching;
 
 public static class SkillMatcher
 {
-    public static bool ContainsSkill(
-        string resumeText,
-        string skill)
+    private static readonly Dictionary<string, string[]> SkillAliases =
+    new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["C#"] = ["C#", "C Sharp", "CSharp"],
+
+        ["ASP.NET Core"] =
+            ["ASP.NET Core", "ASP Net Core"],
+
+        ["Web API"] =
+            ["Web API", "Web APIs"],
+
+        ["Entity Framework Core"] =
+            ["Entity Framework Core", "EF Core"],
+
+        ["SQL Server"] =
+            ["SQL Server", "Microsoft SQL Server"],
+
+        ["REST APIs"] =
+            ["REST API", "REST APIs", "RESTful API", "RESTful APIs"],
+
+        ["AWS"] =
+            ["AWS", "Amazon Web Services"],
+
+        ["PostgreSQL"] =
+            ["PostgreSQL", "Postgres"]
+    };
+
+    public static bool ContainsSkill(string resumeText, string skill)
     {
         if (string.IsNullOrWhiteSpace(resumeText) ||
             string.IsNullOrWhiteSpace(skill))
@@ -15,17 +41,23 @@ public static class SkillMatcher
         }
 
         var normalizedResume = Normalize(resumeText);
-        var normalizedSkill = Normalize(skill);
 
-        var escapedSkill = Regex.Escape(normalizedSkill);
+        var aliases = SkillAliases.TryGetValue(skill.Trim(), out var knownAliases)
+            ? knownAliases
+            : [skill];
 
-        var pattern =
-            $@"(?<![\p{{L}}\p{{N}}]){escapedSkill}(?![\p{{L}}\p{{N}}])";
+        return aliases.Any(alias =>
+        {
+            var normalizedSkill = Normalize(alias);
 
-        return Regex.IsMatch(
-            normalizedResume,
-            pattern,
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var pattern =
+                $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(normalizedSkill)}(?![\p{{L}}\p{{N}}])";
+
+            return Regex.IsMatch(
+                normalizedResume,
+                pattern,
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        });
     }
 
     public static string Normalize(string text)
