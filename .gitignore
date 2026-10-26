@@ -1,0 +1,39 @@
+# .NET build output
+**/bin/
+**/obj/
+
+# User-specific files
+*.user
+*.suo
+
+# IDE files
+.vs/
+.idea/
+.vscode/
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Uploaded resumes and downloaded files
+ResumeJobMatching.Api/App_Data/Resumes/
+ResumeJobMatching.Api/downloaded-resume.pdf
+
+# Backup files
+*.bak
+
+# Local databases and runtime data
+*.db
+*.sqlite
+
+# Local configuration that may contain credentials
+ResumeJobMatching.Api/appsettings.Development.json
+ResumeJobMatching.Api/appsettings.*.local.json
