@@ -185,8 +185,7 @@ private const double DefaultSkillWeight = 10;
 
         var summary = requiredSkills.Count == 0
     ? "No required skills were specified for this job."
-    : $"Matched {matchingSkills.Count} of {requiredSkills.Count} required skills. " +
-      $"Missing {missingSkills.Count} required skills.";
+    : $"Matched {matchingSkills.Count} of {requiredSkills.Count} required skills.";
 
         return new ResumeMatchResponse
         {

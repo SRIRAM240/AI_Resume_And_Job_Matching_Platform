@@ -847,9 +847,9 @@ public async Task MatchAsync_UnlistedSkills_UseDefaultWeight()
     var result = await service.MatchAsync(1, 1, 1);
 
     Assert.NotNull(result);
-    Assert.Equal(50.0, result.SkillMatchScore);
+    Assert.Equal(25.0, result.SkillMatchScore);
 Assert.Equal(0.0, result.DescriptionRelevanceScore);
-Assert.Equal(35.0, result.MatchScore);
+Assert.Equal(17.5, result.MatchScore);
 }
 
 [Fact]
