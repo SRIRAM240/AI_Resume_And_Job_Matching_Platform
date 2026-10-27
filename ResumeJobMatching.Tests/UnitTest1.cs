@@ -165,18 +165,19 @@ public class UnitTest1
     }
 
     private static Job CreateJob(
-        int id,
-        string requiredSkills)
+    int id,
+    string requiredSkills,
+    string description = "Test job description")
+{
+    return new Job
     {
-        return new Job
-        {
-            Id = id,
-            Title = ".NET Backend Developer",
-            CompanyName = "Test Company",
-            Description = "Test job description",
-            RequiredSkills = requiredSkills
-        };
-    }
+        Id = id,
+        Title = ".NET Backend Developer",
+        CompanyName = "Test Company",
+        Description = description,
+        RequiredSkills = requiredSkills
+    };
+}
 
     // -------------------------------
     // New ResumeMatchingService tests
@@ -213,7 +214,9 @@ public class UnitTest1
 
         Assert.NotNull(result);
 
-        Assert.Equal(57.14, result.MatchScore);
+        Assert.Equal(57.14, result.SkillMatchScore);
+Assert.Equal(0.0, result.DescriptionRelevanceScore);
+Assert.Equal(40.0, result.MatchScore);
 
         Assert.Equal(
             new[] { "C#", "REST APIs" },
@@ -231,6 +234,43 @@ public class UnitTest1
 
         Assert.Equal("Matched 2 of 4 required skills.", result.Summary);
     }
+
+
+[Fact]
+public async Task MatchAsync_DescriptionRelevanceContributesToFinalScore()
+{
+    using var context = CreateDbContext();
+
+    context.Users.Add(CreateUser(1));
+
+    context.Resumes.Add(
+        CreateResume(
+            id: 1,
+            userId: 1,
+            extractedText: "Experienced C# developer with REST APIs and SQL Server experience"));
+
+    context.Jobs.Add(
+        CreateJob(
+            id: 1,
+            requiredSkills: "C#, SQL Server",
+            description: "Experienced C# developer with REST APIs and SQL Server experience"));
+
+    await context.SaveChangesAsync();
+
+    var service = new ResumeMatchingService(context);
+
+    var result = await service.MatchAsync(
+        resumeId: 1,
+        jobId: 1,
+        userId: 1);
+
+    Assert.NotNull(result);
+
+    Assert.Equal(100.0, result.SkillMatchScore);
+    Assert.Equal(100.0, result.DescriptionRelevanceScore);
+    Assert.Equal(100.0, result.MatchScore);
+}
+
 
     [Fact]
     public async Task MatchAsync_ResumeDoesNotExist_ReturnsNull()
@@ -337,7 +377,23 @@ public class UnitTest1
             "The selected resume does not contain extracted text.",
             exception.Message);
     }
-    
+
+
+[Fact]
+public void DescriptionRelevanceMatcher_PartialTermsMatch_ReturnsExpectedScore()
+{
+    var resumeText = "Experienced C# developer with SQL Server knowledge";
+
+    var jobDescription = "C# developer with SQL Server and Docker experience";
+
+    var score = DescriptionRelevanceMatcher.CalculateScore(
+        resumeText,
+        jobDescription);
+
+    Assert.Equal(72.73, score);
+}
+
+
 [Fact]
 public async Task MatchAsync_DuplicateRequiredSkills_DoesNotInflateScore()
 {
@@ -358,7 +414,9 @@ public async Task MatchAsync_DuplicateRequiredSkills_DoesNotInflateScore()
     var result = await service.MatchAsync(1, 1, 1);
 
     Assert.NotNull(result);
-    Assert.Equal(60.0, result.MatchScore);
+    Assert.Equal(60.0, result.SkillMatchScore);
+Assert.Equal(0.0, result.DescriptionRelevanceScore);
+Assert.Equal(42.0, result.MatchScore);
     Assert.Equal(new[] { "C#" }, result.MatchingSkills);
     Assert.Equal(new[] { "SQL Server" }, result.MissingSkills);
     Assert.Equal("Matched 1 of 2 required skills.", result.Summary);
@@ -390,6 +448,43 @@ public async Task MatchAsync_NoRequiredSkills_ReturnsZeroScore()
         "No required skills were specified for this job.",
         result.Summary);
 }
+
+[Fact]
+public async Task MatchAsync_NoRequiredSkillsWithMatchingDescription_ReturnsZeroScore()
+{
+    using var context = CreateDbContext();
+
+    context.Users.Add(CreateUser(1));
+
+    const string resumeText =
+        "Experienced C# developer with SQL Server experience";
+
+    context.Resumes.Add(
+        CreateResume(1, 1, resumeText));
+
+    context.Jobs.Add(
+        CreateJob(
+            id: 1,
+            requiredSkills: "",
+            description: resumeText));
+
+    await context.SaveChangesAsync();
+
+    var service = new ResumeMatchingService(context);
+
+    var result = await service.MatchAsync(1, 1, 1);
+
+    Assert.NotNull(result);
+    Assert.Equal(0.0, result.SkillMatchScore);
+    Assert.Equal(100.0, result.DescriptionRelevanceScore);
+    Assert.Equal(0.0, result.MatchScore);
+    Assert.Empty(result.MatchingSkills);
+    Assert.Empty(result.MissingSkills);
+    Assert.Equal(
+        "No required skills were specified for this job.",
+        result.Summary);
+}
+
 
 [Fact]
 public async Task MatchAsync_NoMatchingSkills_ReturnsZeroScore()
@@ -526,13 +621,19 @@ public async Task MatchAllJobsAsync_ReturnsJobsRankedByMatchScore()
     Assert.Equal(3, results.Count);
 
     Assert.Equal(2, results[0].JobId);
-    Assert.Equal(100, results[0].MatchScore);
+    Assert.Equal(100.0, results[0].SkillMatchScore);
+Assert.Equal(0.0, results[0].DescriptionRelevanceScore);
+Assert.Equal(70.0, results[0].MatchScore);
 
     Assert.Equal(3, results[1].JobId);
-    Assert.Equal(75, results[1].MatchScore);
+    Assert.Equal(75.0, results[1].SkillMatchScore);
+Assert.Equal(0.0, results[1].DescriptionRelevanceScore);
+Assert.Equal(52.5, results[1].MatchScore);
 
     Assert.Equal(1, results[2].JobId);
-    Assert.Equal(0, results[2].MatchScore);
+    Assert.Equal(0.0, results[2].SkillMatchScore);
+Assert.Equal(0.0, results[2].DescriptionRelevanceScore);
+Assert.Equal(0.0, results[2].MatchScore);
 }
 [Fact]
 public async Task MatchAllJobsAsync_ReturnsNotFoundForAnotherUsersResume()
@@ -641,6 +742,41 @@ public void ContainsSkill_RelatedButDifferentSkills_ReturnsFalse(
     Assert.False(SkillMatcher.ContainsSkill(resumeText, skill));
 }
 
+
+[Fact]
+public async Task MatchAsync_EmptyJobDescription_UsesOnlySkillScoreWeight()
+{
+    using var context = CreateDbContext();
+
+    context.Users.Add(CreateUser(1));
+
+    context.Resumes.Add(
+        CreateResume(
+            1,
+            1,
+            "Experienced in C#"));
+
+    context.Jobs.Add(
+        CreateJob(
+            id: 1,
+            requiredSkills: "C#, Git",
+            description: ""));
+
+    await context.SaveChangesAsync();
+
+    var service = new ResumeMatchingService(context);
+
+    var result = await service.MatchAsync(1, 1, 1);
+
+    Assert.NotNull(result);
+    Assert.Equal(75.0, result.SkillMatchScore);
+    Assert.Equal(0.0, result.DescriptionRelevanceScore);
+    Assert.Equal(52.5, result.MatchScore);
+    Assert.Equal(new[] { "C#" }, result.MatchingSkills);
+    Assert.Equal(new[] { "Git" }, result.MissingSkills);
+}
+
+
 [Fact]
 public async Task MatchAsync_HighWeightMatchedSkill_ProducesWeightedScore()
 {
@@ -661,7 +797,9 @@ public async Task MatchAsync_HighWeightMatchedSkill_ProducesWeightedScore()
     var result = await service.MatchAsync(1, 1, 1);
 
     Assert.NotNull(result);
-    Assert.Equal(75.0, result.MatchScore);
+    Assert.Equal(75.0, result.SkillMatchScore);
+Assert.Equal(0.0, result.DescriptionRelevanceScore);
+Assert.Equal(52.5, result.MatchScore);
 }
 
 [Fact]
@@ -684,7 +822,9 @@ public async Task MatchAsync_LowWeightMatchedSkill_ProducesWeightedScore()
     var result = await service.MatchAsync(1, 1, 1);
 
     Assert.NotNull(result);
-    Assert.Equal(25.0, result.MatchScore);
+    Assert.Equal(25.0, result.SkillMatchScore);
+Assert.Equal(0.0, result.DescriptionRelevanceScore);
+Assert.Equal(17.5, result.MatchScore);
 }
 
 [Fact]
@@ -707,7 +847,251 @@ public async Task MatchAsync_UnlistedSkills_UseDefaultWeight()
     var result = await service.MatchAsync(1, 1, 1);
 
     Assert.NotNull(result);
-    Assert.Equal(50.0, result.MatchScore);
+    Assert.Equal(50.0, result.SkillMatchScore);
+Assert.Equal(0.0, result.DescriptionRelevanceScore);
+Assert.Equal(35.0, result.MatchScore);
+}
+
+[Fact]
+public void DescriptionRelevanceMatcher_AllTermsMatch_Returns100()
+{
+    var score = DescriptionRelevanceMatcher.CalculateScore(
+        "Experienced backend developer using C# and APIs",
+        "Backend developer using C# and APIs");
+
+    Assert.Equal(100.0, score);
+}
+
+[Fact]
+public void DescriptionRelevanceMatcher_HalfTermsMatch_Returns50()
+{
+    var score = DescriptionRelevanceMatcher.CalculateScore(
+        "Experienced backend developer",
+        "Backend developer using C# and APIs");
+
+    Assert.Equal(25.0, score);
+}
+
+[Fact]
+public void DescriptionRelevanceMatcher_EmptyDescription_ReturnsZero()
+{
+    var score = DescriptionRelevanceMatcher.CalculateScore(
+        "Experienced backend developer",
+        "");
+
+    Assert.Equal(0.0, score);
+}
+
+
+[Fact]
+public void DescriptionRelevanceMatcher_TechnicalAliasesMatch()
+{
+    var resumeText = "Experienced in JavaScript, PostgreSQL, and REST APIs";
+    var jobDescription = "Experience with JS, Postgres, and RESTful API";
+
+    var score = DescriptionRelevanceMatcher.CalculateScore(
+        resumeText,
+        jobDescription);
+
+    Assert.Equal(100.0, score);
+}
+
+[Fact]
+public void DescriptionRelevanceMatcher_CaseDifferences_Returns100()
+{
+    var score = DescriptionRelevanceMatcher.CalculateScore(
+        "EXPERIENCED C# DEVELOPER",
+        "experienced c# developer");
+
+    Assert.Equal(100.0, score);
+}
+
+[Fact]
+public void DescriptionRelevanceMatcher_EmptyResume_ReturnsZero()
+{
+    var score = DescriptionRelevanceMatcher.CalculateScore(
+        "",
+        "C# developer with SQL Server experience");
+
+    Assert.Equal(0.0, score);
+}
+
+[Fact]
+public void DescriptionRelevanceMatcher_DuplicateTermsDoNotInflateScore()
+{
+    var score = DescriptionRelevanceMatcher.CalculateScore(
+        "C# C# C# developer",
+        "C# developer");
+
+    Assert.Equal(100.0, score);
+}
+
+[Fact]
+public void DescriptionRelevanceMatcher_UnmatchedTerms_ReturnsZero()
+{
+    var score = DescriptionRelevanceMatcher.CalculateScore(
+        "Experienced Python engineer",
+        "C# developer");
+
+    Assert.Equal(0.0, score);
+}
+
+[Fact]
+public void DescriptionRelevanceMatcher_CSharpAliasesMatch()
+{
+    var score = DescriptionRelevanceMatcher.CalculateScore(
+        "Experienced C Sharp developer",
+        "Experienced C# developer");
+
+    Assert.Equal(100.0, score);
+}
+
+[Fact]
+public void DescriptionRelevanceMatcher_AspNetCoreAliasesMatch()
+{
+    var score = DescriptionRelevanceMatcher.CalculateScore(
+        "Experienced in ASP Net Core development",
+        "Experienced in ASP.NET Core development");
+
+    Assert.Equal(100.0, score);
+}
+
+
+
+
+    // -------------------------------
+    // Additional SkillMatcher edge cases
+    // -------------------------------
+
+    [Theory]
+    [InlineData("Experienced in JavaScript", "Java")]
+    [InlineData("My projects are on GitHub", "Git")]
+    [InlineData("Used Entity Framework", "Entity Framework Core")]
+    [InlineData("Developed a web API", "REST APIs")]
+    public void ContainsSkill_UnrelatedOrIncompleteSkill_ReturnsFalse(
+        string resumeText,
+        string skill)
+    {
+        Assert.False(SkillMatcher.ContainsSkill(resumeText, skill));
+    }
+
+    [Theory]
+    [InlineData("Experienced in EF Core", "Entity Framework Core")]
+    [InlineData("Used Postgres for database storage", "PostgreSQL")]
+    [InlineData("Developed RESTful APIs", "REST APIs")]
+    [InlineData("Experienced in ASP Net Core", "ASP.NET Core")]
+    public void ContainsSkill_KnownAliases_ReturnsTrue(
+        string resumeText,
+        string skill)
+    {
+        Assert.True(SkillMatcher.ContainsSkill(resumeText, skill));
+    }
+
+    [Theory]
+    [InlineData("", "C#")]
+    [InlineData("Experienced in C#", "")]
+    [InlineData("Experienced in C#", "   ")]
+    public void ContainsSkill_EmptyInput_ReturnsFalse(
+        string resumeText,
+        string skill)
+    {
+        Assert.False(SkillMatcher.ContainsSkill(resumeText, skill));
+    }
+
+
+    [Fact]
+    public void DescriptionRelevanceMatcher_TechnicalTermsMatchRegardlessOfCase()
+    {
+        var resumeText =
+            "C# ASP.NET CORE SQL SERVER Docker";
+
+        var jobDescription =
+            "c# asp.net core sql server docker";
+
+        var score = DescriptionRelevanceMatcher.CalculateScore(
+            resumeText,
+            jobDescription);
+
+        Assert.Equal(100.0, score);
+    }
+
+    [Fact]
+    public void DescriptionRelevanceMatcher_PrioritizesTechnicalTerms()
+    {
+        var resumeText =
+            "Experienced developer with C# and SQL Server";
+
+        var jobDescription =
+            "Experienced developer with C#, SQL Server, and Docker";
+
+        var score = DescriptionRelevanceMatcher.CalculateScore(
+            resumeText,
+            jobDescription);
+
+        Assert.True(score > 50.0);
+        Assert.True(score < 100.0);
+    }
+
+    [Fact]
+    public void DescriptionRelevanceMatcher_IgnoresRepeatedResumeTerms()
+    {
+        var resumeText =
+            "C# C# C# developer with SQL Server experience";
+
+        var jobDescription =
+            "C# developer with SQL Server experience";
+
+        var score = DescriptionRelevanceMatcher.CalculateScore(
+            resumeText,
+            jobDescription);
+
+        Assert.Equal(100.0, score);
+    }
+
+[Theory]
+[InlineData("EXPERIENCED IN SQL SERVER", "SQL Server")]
+[InlineData("experienced in docker", "Docker")]
+[InlineData("Experienced in C SHARP", "C#")]
+public void ContainsSkill_CaseInsensitiveMatching_ReturnsTrue(
+    string resumeText,
+    string skill)
+{
+    Assert.True(SkillMatcher.ContainsSkill(resumeText, skill));
+}
+
+[Theory]
+[InlineData("Experienced in C#", "C#")]
+[InlineData("Experienced in C Sharp", "C#")]
+[InlineData("Experienced in CSharp", "C#")]
+public void ContainsSkill_CSharpFormattingVariations_ReturnsTrue(
+    string resumeText,
+    string skill)
+{
+    Assert.True(SkillMatcher.ContainsSkill(resumeText, skill));
+}
+
+[Fact]
+public void ContainsSkill_AspNetDoesNotMatchAspNetCore_ReturnsFalse()
+{
+    var result = SkillMatcher.ContainsSkill(
+        "Experienced in ASP.NET Core",
+        "ASP.NET");
+
+    Assert.False(result);
+}
+[Fact]
+public void DescriptionRelevanceMatcher_AspNetCoreReceivesTechnicalWeight()
+{
+    var resumeText = "ASP.NET Core";
+    var jobDescription = "ASP.NET Core developer";
+
+    var score = DescriptionRelevanceMatcher.CalculateScore(
+        resumeText,
+        jobDescription);
+
+    // ASP.NET Core has weight 3, while developer has weight 1.
+    // Expected score = (3 / 4) * 100 = 75.
+    Assert.Equal(75.0, score);
 }
 
 

@@ -207,127 +207,127 @@ public class ResumeService
     int resumeId,
     int userId,
     CancellationToken cancellationToken = default)
-{
-    return await _context.Resumes
-        .AsNoTracking()
-        .Where(resume =>
-            resume.Id == resumeId &&
-            resume.UserId == userId)
-        .Select(resume => new ResumeDetailsResponse
+    {
+        return await _context.Resumes
+            .AsNoTracking()
+            .Where(resume =>
+                resume.Id == resumeId &&
+                resume.UserId == userId)
+            .Select(resume => new ResumeDetailsResponse
+            {
+                Id = resume.Id,
+                FileName = resume.FileName,
+                UploadedAt = resume.UploadedAt,
+                HasExtractedText = !string.IsNullOrEmpty(
+                    resume.ExtractedText),
+                ExtractedTextLength = resume.ExtractedText == null
+                    ? 0
+                    : resume.ExtractedText.Length
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+    public async Task<(byte[] Content, string FileName)?> DownloadAsync(
+        int resumeId,
+        int userId,
+        CancellationToken cancellationToken = default)
+    {
+        var resume = await _context.Resumes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                r => r.Id == resumeId && r.UserId == userId,
+                cancellationToken);
+
+        if (resume is null)
         {
-            Id = resume.Id,
-            FileName = resume.FileName,
-            UploadedAt = resume.UploadedAt,
-            HasExtractedText = !string.IsNullOrEmpty(
-                resume.ExtractedText),
-            ExtractedTextLength = resume.ExtractedText == null
-                ? 0
-                : resume.ExtractedText.Length
-        })
-        .FirstOrDefaultAsync(cancellationToken);
-}
-public async Task<(byte[] Content, string FileName)?> DownloadAsync(
-    int resumeId,
-    int userId,
-    CancellationToken cancellationToken = default)
-{
-    var resume = await _context.Resumes
-        .AsNoTracking()
-        .FirstOrDefaultAsync(
-            r => r.Id == resumeId && r.UserId == userId,
+            return null;
+        }
+
+        var storageRoot = Path.GetFullPath(
+            Path.Combine(
+                _environment.ContentRootPath,
+                "App_Data",
+                "Resumes"));
+
+        var absolutePath = Path.GetFullPath(
+            Path.Combine(
+                _environment.ContentRootPath,
+                resume.FilePath));
+
+        // Ensure the requested path remains inside the resume storage folder.
+        var expectedPrefix = storageRoot + Path.DirectorySeparatorChar;
+
+        if (!absolutePath.StartsWith(
+            expectedPrefix,
+            StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Invalid resume storage path.");
+        }
+
+        if (!File.Exists(absolutePath))
+        {
+            throw new FileNotFoundException(
+                "The resume file could not be found.");
+        }
+
+        var content = await File.ReadAllBytesAsync(
+            absolutePath,
             cancellationToken);
 
-    if (resume is null)
-    {
-        return null;
+        return (content, resume.FileName);
     }
-
-    var storageRoot = Path.GetFullPath(
-        Path.Combine(
-            _environment.ContentRootPath,
-            "App_Data",
-            "Resumes"));
-
-    var absolutePath = Path.GetFullPath(
-        Path.Combine(
-            _environment.ContentRootPath,
-            resume.FilePath));
-
-    // Ensure the requested path remains inside the resume storage folder.
-    var expectedPrefix = storageRoot + Path.DirectorySeparatorChar;
-
-    if (!absolutePath.StartsWith(
-        expectedPrefix,
-        StringComparison.Ordinal))
+    // Delete a resume belonging to the authenticated user.
+    public async Task<bool> DeleteAsync(
+        int resumeId,
+        int userId,
+        CancellationToken cancellationToken = default)
     {
-        throw new InvalidOperationException(
-            "Invalid resume storage path.");
+        var resume = await _context.Resumes
+            .FirstOrDefaultAsync(
+                r => r.Id == resumeId && r.UserId == userId,
+                cancellationToken);
+
+        // Return false if the resume doesn't exist
+        // or belongs to another user.
+        if (resume is null)
+        {
+            return false;
+        }
+
+        var storageRoot = Path.GetFullPath(
+            Path.Combine(
+                _environment.ContentRootPath,
+                "App_Data",
+                "Resumes"));
+
+        var absolutePath = Path.GetFullPath(
+            Path.Combine(
+                _environment.ContentRootPath,
+                resume.FilePath));
+
+        // Ensure the file path stays inside the resume storage directory.
+        var expectedPrefix =
+            storageRoot + Path.DirectorySeparatorChar;
+
+        if (!absolutePath.StartsWith(
+            expectedPrefix,
+            StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Invalid resume storage path.");
+        }
+
+        // Delete the physical file first if it exists.
+        if (File.Exists(absolutePath))
+        {
+            File.Delete(absolutePath);
+        }
+
+        // Delete the database record.
+        _context.Resumes.Remove(resume);
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return true;
     }
-
-    if (!File.Exists(absolutePath))
-    {
-        throw new FileNotFoundException(
-            "The resume file could not be found.");
-    }
-
-    var content = await File.ReadAllBytesAsync(
-        absolutePath,
-        cancellationToken);
-
-    return (content, resume.FileName);
-}
-// Delete a resume belonging to the authenticated user.
-public async Task<bool> DeleteAsync(
-    int resumeId,
-    int userId,
-    CancellationToken cancellationToken = default)
-{
-    var resume = await _context.Resumes
-        .FirstOrDefaultAsync(
-            r => r.Id == resumeId && r.UserId == userId,
-            cancellationToken);
-
-    // Return false if the resume doesn't exist
-    // or belongs to another user.
-    if (resume is null)
-    {
-        return false;
-    }
-
-    var storageRoot = Path.GetFullPath(
-        Path.Combine(
-            _environment.ContentRootPath,
-            "App_Data",
-            "Resumes"));
-
-    var absolutePath = Path.GetFullPath(
-        Path.Combine(
-            _environment.ContentRootPath,
-            resume.FilePath));
-
-    // Ensure the file path stays inside the resume storage directory.
-    var expectedPrefix =
-        storageRoot + Path.DirectorySeparatorChar;
-
-    if (!absolutePath.StartsWith(
-        expectedPrefix,
-        StringComparison.Ordinal))
-    {
-        throw new InvalidOperationException(
-            "Invalid resume storage path.");
-    }
-
-    // Delete the physical file first if it exists.
-    if (File.Exists(absolutePath))
-    {
-        File.Delete(absolutePath);
-    }
-
-    // Delete the database record.
-    _context.Resumes.Remove(resume);
-
-    await _context.SaveChangesAsync(cancellationToken);
-
-    return true;
-}
 }

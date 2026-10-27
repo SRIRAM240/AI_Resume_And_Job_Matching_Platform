@@ -9,28 +9,41 @@ namespace ResumeJobMatching.Api.Services.Matching;
 public class ResumeMatchingService
 {
     private readonly ApplicationDbContext _context;
-    private static readonly Dictionary<string, double> SkillWeights =
-    new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["C#"] = 30,
-        ["ASP.NET Core"] = 30,
-        ["SQL Server"] = 20,
-        ["Git"] = 10,
-        ["Docker"] = 10
-    };
 
+    private const double SkillScoreWeight = 0.70;
+private const double DescriptionScoreWeight = 0.30;
 private const double DefaultSkillWeight = 10;
 
-private static double GetSkillWeight(string skill)
-{
-    return SkillWeights.TryGetValue(skill.Trim(), out var weight)
-        ? weight
-        : DefaultSkillWeight;
-}
+
+
+    private static readonly Dictionary<string, double> SkillWeights =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["C#"] = 30,
+            ["ASP.NET Core"] = 30,
+            ["Web API"] = 20,
+            ["Entity Framework Core"] = 20,
+            ["SQL Server"] = 20,
+            ["Git"] = 10,
+            ["Docker"] = 10,
+            ["AWS"] = 15,
+            ["Azure"] = 15,
+            ["Java"] = 30,
+            ["Spring Boot"] = 25,
+            ["PostgreSQL"] = 20
+        };
+
 
     public ResumeMatchingService(ApplicationDbContext context)
     {
         _context = context;
+    }
+
+    private static double GetSkillWeight(string skill)
+    {
+        return SkillWeights.TryGetValue(skill.Trim(), out var weight)
+            ? weight
+            : DefaultSkillWeight;
     }
 
     public async Task<ResumeMatchResponse?> MatchAsync(
@@ -104,15 +117,16 @@ private static double GetSkillWeight(string skill)
         }
     }
 
-   private static ResumeMatchResponse BuildMatchResponse(
-    global::ResumeJobMatching.Api.Models.Resume resume,
-    global::ResumeJobMatching.Api.Models.Jobs.Job job)
+    private static ResumeMatchResponse BuildMatchResponse(
+        global::ResumeJobMatching.Api.Models.Resume resume,
+        Job job)
     {
-        var requiredSkills = job.RequiredSkills
+        var requiredSkills = (job.RequiredSkills ?? string.Empty)
             .Split(
                 ',',
                 StringSplitOptions.RemoveEmptyEntries |
                 StringSplitOptions.TrimEntries)
+            .Where(skill => !string.IsNullOrWhiteSpace(skill))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -123,17 +137,17 @@ private static double GetSkillWeight(string skill)
         foreach (var skill in requiredSkills)
         {
             var isMatched = SkillMatcher.ContainsSkill(
-    resume.ExtractedText!,
-    skill);
+                resume.ExtractedText!,
+                skill);
 
             skillMatchDetails.Add(new SkillMatchDetail
-{
-    Skill = skill,
-    IsMatched = isMatched,
-    Explanation = isMatched
-        ? $"The required skill '{skill}' was found in the extracted resume text."
-        : $"No matching evidence for '{skill}' was found in the extracted resume text."
-});
+            {
+                Skill = skill,
+                IsMatched = isMatched,
+                Explanation = isMatched
+                    ? $"The required skill '{skill}' was found in the extracted resume text."
+                    : $"No matching evidence for '{skill}' was found in the extracted resume text."
+            });
 
             if (isMatched)
             {
@@ -146,18 +160,33 @@ private static double GetSkillWeight(string skill)
         }
 
         var totalWeight = requiredSkills.Sum(GetSkillWeight);
+        var matchedWeight = matchingSkills.Sum(GetSkillWeight);
 
-var matchedWeight = matchingSkills.Sum(GetSkillWeight);
+        var skillMatchScore = totalWeight == 0
+            ? 0.0
+            : Math.Round(
+                matchedWeight * 100.0 / totalWeight,
+                2);
 
-var matchScore = totalWeight == 0
-    ? 0
+        var descriptionRelevanceScore =
+            DescriptionRelevanceMatcher.CalculateScore(
+                resume.ExtractedText!,
+                job.Description ?? string.Empty);
+
+        var matchScore = requiredSkills.Count == 0
+    ? 0.0
     : Math.Round(
-        matchedWeight * 100.0 / totalWeight,
+        Math.Clamp(
+            (skillMatchScore * SkillScoreWeight) +
+            (descriptionRelevanceScore * DescriptionScoreWeight),
+            0,
+            100),
         2);
 
         var summary = requiredSkills.Count == 0
-            ? "No required skills were specified for this job."
-            : $"Matched {matchingSkills.Count} of {requiredSkills.Count} required skills.";
+    ? "No required skills were specified for this job."
+    : $"Matched {matchingSkills.Count} of {requiredSkills.Count} required skills. " +
+      $"Missing {missingSkills.Count} required skills.";
 
         return new ResumeMatchResponse
         {
@@ -166,7 +195,11 @@ var matchScore = totalWeight == 0
             JobId = job.Id,
             JobTitle = job.Title,
             CompanyName = job.CompanyName,
+
+            SkillMatchScore = skillMatchScore,
+            DescriptionRelevanceScore = descriptionRelevanceScore,
             MatchScore = matchScore,
+
             MatchingSkills = matchingSkills,
             MissingSkills = missingSkills,
             SkillMatchDetails = skillMatchDetails,

@@ -58,43 +58,43 @@ public class MatchingController : ControllerBase
         }
     }
     [HttpGet("resume/{resumeId:int}/jobs")]
-public async Task<IActionResult> MatchAllJobs(
+    public async Task<IActionResult> MatchAllJobs(
     int resumeId,
     CancellationToken cancellationToken)
-{
-    var userIdClaim = User.FindFirstValue("sub")
-        ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+    {
+        var userIdClaim = User.FindFirstValue("sub")
+            ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-    if (!int.TryParse(userIdClaim, out var userId))
-    {
-        return Unauthorized(new
+        if (!int.TryParse(userIdClaim, out var userId))
         {
-            message = "Unable to identify the authenticated user."
-        });
-    }
+            return Unauthorized(new
+            {
+                message = "Unable to identify the authenticated user."
+            });
+        }
 
-    try
-    {
-        var results = await _matchingService.MatchAllJobsAsync(
-            resumeId,
-            userId,
-            cancellationToken);
+        try
+        {
+            var results = await _matchingService.MatchAllJobsAsync(
+                resumeId,
+                userId,
+                cancellationToken);
 
-        return Ok(results);
-    }
-    catch (KeyNotFoundException)
-    {
-        return NotFound(new
+            return Ok(results);
+        }
+        catch (KeyNotFoundException)
         {
-            message = "Resume not found."
-        });
-    }
-    catch (InvalidOperationException ex)
-    {
-        return BadRequest(new
+            return NotFound(new
+            {
+                message = "Resume not found."
+            });
+        }
+        catch (InvalidOperationException ex)
         {
-            message = ex.Message
-        });
+            return BadRequest(new
+            {
+                message = ex.Message
+            });
+        }
     }
-}
 }

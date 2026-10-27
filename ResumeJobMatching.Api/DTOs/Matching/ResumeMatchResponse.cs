@@ -13,6 +13,9 @@ public class ResumeMatchResponse
     public string CompanyName { get; set; } = string.Empty;
 
     public double MatchScore { get; set; }
+    public double SkillMatchScore { get; set; }
+
+    public double DescriptionRelevanceScore { get; set; }
 
     public List<string> MatchingSkills { get; set; } = [];
 

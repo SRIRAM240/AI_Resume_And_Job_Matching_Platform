@@ -15,9 +15,15 @@ public class JobService
     }
 
     public async Task<JobResponse> CreateAsync(
+
         CreateJobRequest request,
         CancellationToken cancellationToken = default)
     {
+        ValidateRequiredFields(
+            request.Title,
+            request.CompanyName,
+            request.Description,
+            request.RequiredSkills);
         var job = new Job
         {
             Title = request.Title.Trim(),
@@ -71,6 +77,11 @@ public class JobService
         UpdateJobRequest request,
         CancellationToken cancellationToken = default)
     {
+        ValidateRequiredFields(
+    request.Title,
+    request.CompanyName,
+    request.Description,
+    request.RequiredSkills);
         var job = await _context.Jobs
             .FirstOrDefaultAsync(job => job.Id == id, cancellationToken);
 
@@ -123,4 +134,22 @@ public class JobService
             CreatedAt = job.CreatedAt
         };
     }
+    private static void ValidateRequiredFields(
+    string? title,
+    string? companyName,
+    string? description,
+    string? requiredSkills)
+{
+    if (string.IsNullOrWhiteSpace(title))
+        throw new ArgumentException("Job title is required.", nameof(title));
+
+    if (string.IsNullOrWhiteSpace(companyName))
+        throw new ArgumentException("Company name is required.", nameof(companyName));
+
+    if (string.IsNullOrWhiteSpace(description))
+        throw new ArgumentException("Job description is required.", nameof(description));
+
+    if (string.IsNullOrWhiteSpace(requiredSkills))
+        throw new ArgumentException("Required skills must be specified.", nameof(requiredSkills));
+}
 }

@@ -37,3 +37,9 @@ ResumeJobMatching.Api/downloaded-resume.pdf
 # Local configuration that may contain credentials
 ResumeJobMatching.Api/appsettings.Development.json
 ResumeJobMatching.Api/appsettings.*.local.json
+
+# Test results and coverage reports
+**/TestResults/
+
+# Temporary skill matcher project
+SkillMatcherCheck/

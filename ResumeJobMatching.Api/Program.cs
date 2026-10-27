@@ -11,7 +11,38 @@ using ResumeJobMatching.Api.Services.Resume;
 var builder = WebApplication.CreateBuilder(args);
 
 // Register OpenAPI
-builder.Services.AddOpenApi();
+// Register OpenAPI and Swagger JWT authentication
+// Register Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
+    {
+        Title = "ResumeJobMatching API",
+        Version = "v1",
+        Description = "API for resume management, job listings, and resume-job matching."
+    });
+
+    options.AddSecurityDefinition("Bearer",
+        new Microsoft.OpenApi.OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = Microsoft.OpenApi.SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = Microsoft.OpenApi.ParameterLocation.Header,
+            Description = "Enter your JWT access token."
+        });
+
+    options.AddSecurityRequirement(document =>
+    new Microsoft.OpenApi.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.OpenApiSecuritySchemeReference("Bearer", document),
+            new List<string>()
+        }
+    });
+});
 
 // Register SQL Server and Entity Framework Core
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -81,9 +112,16 @@ builder.Services.AddScoped<ResumeJobMatching.Api.Services.Matching.ResumeMatchin
 var app = builder.Build();
 
 // Configure HTTP request pipeline
+// Configure HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "ResumeJobMatching API v1");
+        options.RoutePrefix = "swagger";
+    });
 }
 
 app.UseHttpsRedirection();

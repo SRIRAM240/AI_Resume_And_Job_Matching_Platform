@@ -22,12 +22,19 @@ public class JobsController : ControllerBase
         [FromBody] CreateJobRequest request,
         CancellationToken cancellationToken)
     {
-        var job = await _jobService.CreateAsync(request, cancellationToken);
+        try
+{
+    var job = await _jobService.CreateAsync(request, cancellationToken);
 
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = job.Id },
-            job);
+    return CreatedAtAction(
+        nameof(GetById),
+        new { id = job.Id },
+        job);
+}
+catch (ArgumentException ex)
+{
+    return BadRequest(new { message = ex.Message });
+}
     }
 
     [HttpGet]
@@ -62,19 +69,21 @@ public class JobsController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(
-        int id,
-        [FromBody] UpdateJobRequest request,
-        CancellationToken cancellationToken)
+public async Task<IActionResult> Update(
+    int id,
+    [FromBody] UpdateJobRequest request,
+    CancellationToken cancellationToken)
+{
+    if (id <= 0)
     {
-        if (id <= 0)
+        return BadRequest(new
         {
-            return BadRequest(new
-            {
-                message = "Job ID must be greater than zero."
-            });
-        }
+            message = "Job ID must be greater than zero."
+        });
+    }
 
+    try
+    {
         var job = await _jobService.UpdateAsync(
             id,
             request,
@@ -87,6 +96,11 @@ public class JobsController : ControllerBase
 
         return Ok(job);
     }
+    catch (ArgumentException ex)
+    {
+        return BadRequest(new { message = ex.Message });
+    }
+}
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(

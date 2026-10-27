@@ -80,100 +80,58 @@ public class ResumesController : ControllerBase
         }
     }
     [HttpGet]
-public async Task<IActionResult> GetMyResumes(
+    public async Task<IActionResult> GetMyResumes(
     CancellationToken cancellationToken)
-{
-    var userIdClaim = User.FindFirstValue("sub")
-        ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-    if (!int.TryParse(userIdClaim, out var userId))
     {
-        return Unauthorized(new
+        var userIdClaim = User.FindFirstValue("sub")
+            ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!int.TryParse(userIdClaim, out var userId))
         {
-            message = "Unable to identify the authenticated user."
-        });
+            return Unauthorized(new
+            {
+                message = "Unable to identify the authenticated user."
+            });
+        }
+
+        // Retrieve only resumes belonging to the authenticated user.
+        var resumes = await _resumeService.GetMyResumesAsync(
+            userId,
+            cancellationToken);
+
+        return Ok(resumes);
     }
-
-    // Retrieve only resumes belonging to the authenticated user.
-    var resumes = await _resumeService.GetMyResumesAsync(
-        userId,
-        cancellationToken);
-
-    return Ok(resumes);
-}
-// GET: api/resumes/{id}
-[HttpGet("{id:int}")]
-public async Task<IActionResult> GetResumeById(
-    int id,
-    CancellationToken cancellationToken)
-{
-    if (id <= 0)
+    // GET: api/resumes/{id}
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetResumeById(
+        int id,
+        CancellationToken cancellationToken)
     {
-        return BadRequest(new
+        if (id <= 0)
         {
-            message = "Resume ID must be greater than zero."
-        });
-    }
+            return BadRequest(new
+            {
+                message = "Resume ID must be greater than zero."
+            });
+        }
 
-    var userIdClaim = User.FindFirstValue("sub")
-        ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userIdClaim = User.FindFirstValue("sub")
+            ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-    if (!int.TryParse(userIdClaim, out var userId))
-    {
-        return Unauthorized(new
+        if (!int.TryParse(userIdClaim, out var userId))
         {
-            message = "Unable to identify the authenticated user."
-        });
-    }
+            return Unauthorized(new
+            {
+                message = "Unable to identify the authenticated user."
+            });
+        }
 
-    var resume = await _resumeService.GetResumeByIdAsync(
-        id,
-        userId,
-        cancellationToken);
-
-    if (resume is null)
-    {
-        return NotFound(new
-        {
-            message = "Resume not found."
-        });
-    }
-
-    return Ok(resume);
-}
-// GET: api/resumes/{id}/download
-[HttpGet("{id:int}/download")]
-public async Task<IActionResult> DownloadResume(
-    int id,
-    CancellationToken cancellationToken)
-{
-    if (id <= 0)
-    {
-        return BadRequest(new
-        {
-            message = "Resume ID must be greater than zero."
-        });
-    }
-
-    var userIdClaim = User.FindFirstValue("sub")
-        ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-    if (!int.TryParse(userIdClaim, out var userId))
-    {
-        return Unauthorized(new
-        {
-            message = "Unable to identify the authenticated user."
-        });
-    }
-
-    try
-    {
-        var result = await _resumeService.DownloadAsync(
+        var resume = await _resumeService.GetResumeByIdAsync(
             id,
             userId,
             cancellationToken);
 
-        if (result is null)
+        if (resume is null)
         {
             return NotFound(new
             {
@@ -181,65 +139,107 @@ public async Task<IActionResult> DownloadResume(
             });
         }
 
-        var contentType = Path.GetExtension(result.Value.FileName)
-            .ToLowerInvariant() switch
-        {
-            ".pdf" => "application/pdf",
-            ".docx" =>
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            _ => "application/octet-stream"
-        };
-
-        return File(
-            result.Value.Content,
-            contentType,
-            result.Value.FileName);
+        return Ok(resume);
     }
-    catch (FileNotFoundException)
+    // GET: api/resumes/{id}/download
+    [HttpGet("{id:int}/download")]
+    public async Task<IActionResult> DownloadResume(
+        int id,
+        CancellationToken cancellationToken)
     {
-        return NotFound(new
+        if (id <= 0)
         {
-            message = "The stored resume file could not be found."
-        });
+            return BadRequest(new
+            {
+                message = "Resume ID must be greater than zero."
+            });
+        }
+
+        var userIdClaim = User.FindFirstValue("sub")
+            ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!int.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new
+            {
+                message = "Unable to identify the authenticated user."
+            });
+        }
+
+        try
+        {
+            var result = await _resumeService.DownloadAsync(
+                id,
+                userId,
+                cancellationToken);
+
+            if (result is null)
+            {
+                return NotFound(new
+                {
+                    message = "Resume not found."
+                });
+            }
+
+            var contentType = Path.GetExtension(result.Value.FileName)
+                .ToLowerInvariant() switch
+            {
+                ".pdf" => "application/pdf",
+                ".docx" =>
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                _ => "application/octet-stream"
+            };
+
+            return File(
+                result.Value.Content,
+                contentType,
+                result.Value.FileName);
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound(new
+            {
+                message = "The stored resume file could not be found."
+            });
+        }
     }
-}
-[HttpDelete("{id:int}")]
-public async Task<IActionResult> DeleteResume(
-    int id,
-    CancellationToken cancellationToken)
-{
-    if (id <= 0)
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteResume(
+        int id,
+        CancellationToken cancellationToken)
     {
-        return BadRequest(new
+        if (id <= 0)
         {
-            message = "Resume ID must be greater than zero."
-        });
-    }
+            return BadRequest(new
+            {
+                message = "Resume ID must be greater than zero."
+            });
+        }
 
-    var userIdClaim = User.FindFirstValue("sub")
-        ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userIdClaim = User.FindFirstValue("sub")
+            ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-    if (!int.TryParse(userIdClaim, out var userId))
-    {
-        return Unauthorized(new
+        if (!int.TryParse(userIdClaim, out var userId))
         {
-            message = "Unable to identify the authenticated user."
-        });
-    }
+            return Unauthorized(new
+            {
+                message = "Unable to identify the authenticated user."
+            });
+        }
 
-    var deleted = await _resumeService.DeleteAsync(
-        id,
-        userId,
-        cancellationToken);
+        var deleted = await _resumeService.DeleteAsync(
+            id,
+            userId,
+            cancellationToken);
 
-    if (!deleted)
-    {
-        return NotFound(new
+        if (!deleted)
         {
-            message = "Resume not found."
-        });
-    }
+            return NotFound(new
+            {
+                message = "Resume not found."
+            });
+        }
 
-    return NoContent();
-}
+        return NoContent();
+    }
 }
