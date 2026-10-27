@@ -7,6 +7,7 @@ using ResumeJobMatching.Api.Data;
 using ResumeJobMatching.Api.Models;
 using ResumeJobMatching.Api.Services.Auth;
 using ResumeJobMatching.Api.Services.Resume;
+using ResumeJobMatching.Api.Services.AI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -107,6 +108,7 @@ builder.Services.AddScoped<ResumeTextExtractor>();
 builder.Services.AddScoped<ResumeService>();
 builder.Services.AddScoped<ResumeJobMatching.Api.Services.Jobs.JobService>();
 builder.Services.AddScoped<ResumeJobMatching.Api.Services.Matching.ResumeMatchingService>();
+builder.Services.AddHttpClient<GeminiAiService>();
 
 // Build application
 var app = builder.Build();
