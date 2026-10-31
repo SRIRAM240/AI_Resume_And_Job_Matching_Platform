@@ -110,6 +110,18 @@ builder.Services.AddScoped<ResumeJobMatching.Api.Services.Jobs.JobService>();
 builder.Services.AddScoped<ResumeJobMatching.Api.Services.Matching.ResumeMatchingService>();
 builder.Services.AddHttpClient<GeminiAiService>();
 
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 // Build application
 var app = builder.Build();
 
@@ -126,7 +138,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+app.UseCors("Frontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
