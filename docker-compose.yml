@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # -------------------------------------------------------------
+  # 1. SQL Server Database Service
+  # -------------------------------------------------------------
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: resume-matching-db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD:-Password123!}
+      - MSSQL_PID=Developer
+    ports:
+      - "1434:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - resume-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"${MSSQL_SA_PASSWORD:-Password123!}\" -C -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # -------------------------------------------------------------
+  # 2. ASP.NET Core 10 Web API Backend
+  # -------------------------------------------------------------
+  backend:
+    build:
+      context: ./ResumeJobMatching.Api
+      dockerfile: Dockerfile
+    container_name: resume-matching-api
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5175
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=ResumeJobMatchingDb;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Password123!};TrustServerCertificate=True;MultipleActiveResultSets=true;
+      - Jwt__Key=${JWT_KEY:-BpBAWBrFT7nOhBx7qfPHKOOBifmpNe2qJrRPtV389A=}
+      - Jwt__Issuer=ResumeJobMatching.Api
+      - Jwt__Audience=ResumeJobMatching.Client
+      - Jwt__ExpiresMinutes=60
+      - Gemini__ApiKey=${GEMINI_API_KEY}
+      - Gemini__Model=gemini-3.5-flash-lite
+    ports:
+      - "5175:5175"
+    volumes:
+      - resume_storage:/app/App_Data/Resumes
+    networks:
+      - resume-network
+    restart: unless-stopped
+
+  # -------------------------------------------------------------
+  # 3. React + Vite Frontend (Nginx)
+  # -------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://localhost:5175
+    container_name: resume-matching-frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+    networks:
+      - resume-network
+    restart: unless-stopped
+
+networks:
+  resume-network:
+    driver: bridge
+
+volumes:
+  sqlserver_data:
+    driver: local
+  resume_storage:
+    driver: local
+

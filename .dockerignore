@@ -1,0 +1,12 @@
+**/.git
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/*.user
+**/*.suo
+**/App_Data/Resumes/*
+!**/App_Data/Resumes/.gitkeep
+

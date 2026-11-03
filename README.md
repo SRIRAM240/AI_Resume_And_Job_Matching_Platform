@@ -1,282 +1,260 @@
-# Resume and Job Matching API
+# AI Resume and Job Matching Platform
 
-A RESTful backend for a Resume and Job Matching Platform built with C#, ASP.NET Core Web API, and .NET 10.
-
-## Features
-
-- User registration and login
-- JWT bearer authentication
-- User profile management
-- Resume upload, retrieval, download, and deletion
-- Job creation, retrieval, updating, and deletion
-- Resume-to-job matching
-- Matching scores, matching skills, and missing skills
-- SQL Server database integration
-- Entity Framework Core migrations
-- Swagger API documentation in Development mode
-- Automated tests using xUnit
-
-## Technology Stack
-
-- C#
-- ASP.NET Core Web API
-- .NET 10
-- Microsoft SQL Server
-- Entity Framework Core
-- JWT Bearer Authentication
-- PdfPig
-- DocumentFormat.OpenXml
-- Swagger / OpenAPI
-- xUnit
-- Git and GitHub
-
-## Project Structure
-
-    .
-    ├── MatchingDebug/
-    ├── ResumeJobMatching.Api/
-    │   ├── Controllers/
-    │   ├── Data/
-    │   ├── DTOs/
-    │   ├── Migrations/
-    │   ├── Models/
-    │   ├── Program.cs
-    │   └── ResumeJobMatching.Api.csproj
-    ├── ResumeJobMatching.Tests/
-    └── README.md
-
-## Prerequisites
-
-- .NET 10 SDK
-- Microsoft SQL Server
-- Git
-
-## Getting Started
-
-### 1. Clone the repository
-
-    git clone https://github.com/SRIRAM240/AI_Resume_And_Job_Matching_Platform.git
-    cd AI_Resume_And_Job_Matching_Platform
-
-### 2. Configure application settings
-
-The API requires a SQL Server connection string and JWT settings.
-
-Initialize User Secrets if they have not already been initialized:
-
-    dotnet user-secrets init --project ResumeJobMatching.Api
-
-Configure the settings for local development:
-
-    dotnet user-secrets set "ConnectionStrings:DefaultConnection" "YOUR_CONNECTION_STRING" --project ResumeJobMatching.Api
-    dotnet user-secrets set "Jwt:Key" "YOUR_SECRET_SIGNING_KEY" --project ResumeJobMatching.Api
-    dotnet user-secrets set "Jwt:Issuer" "YOUR_ISSUER" --project ResumeJobMatching.Api
-    dotnet user-secrets set "Jwt:Audience" "YOUR_AUDIENCE" --project ResumeJobMatching.Api
-    dotnet user-secrets set "Jwt:ExpiresMinutes" "60" --project ResumeJobMatching.Api
-
-Replace all placeholders with valid local values. Use a strong JWT signing key of at least 32 bytes. The issuer and audience must match the application's JWT configuration.
-
-Never commit database passwords, JWT signing keys, access tokens, or other secrets to source control.
-
-### 3. Restore dependencies
-
-    dotnet restore ResumeJobMatching.Api/ResumeJobMatching.Api.csproj
-
-### 4. Apply database migrations
-
-Ensure SQL Server is running and the connection string is configured correctly.
-
-If the Entity Framework Core CLI is not installed:
-
-    dotnet tool install --global dotnet-ef
-
-Apply the migrations:
-
-    dotnet ef database update --project ResumeJobMatching.Api
-
-### 5. Run the API
-
-    dotnet run --project ResumeJobMatching.Api
-
-Use the local URL displayed in the terminal.
-
-### 6. Open Swagger
-
-Swagger UI is enabled in the Development environment. Open `/swagger` on the local API address displayed by the application.
-
-## Authentication
-
-### Register
-
-**POST** `/api/auth/register`
-
-Request body:
-
-    {
-      "fullName": "Alex Johnson",
-      "email": "alex@example.com",
-      "password": "YOUR_PASSWORD"
-    }
-
-A successful registration returns `201 Created`.
-
-### Login
-
-**POST** `/api/auth/login`
-
-Request body:
-
-    {
-      "email": "alex@example.com",
-      "password": "YOUR_PASSWORD"
-    }
-
-A successful login returns the user ID, name, email, JWT token, and token expiration time.
-
-For protected endpoints, include the token in the request header:
-
-    Authorization: Bearer YOUR_ACCESS_TOKEN
-
-Registration and login are public. Jobs, resumes, matching, and profile endpoints require authentication.
-
-## API Endpoints
-
-Use the local API address as the base URL.
-
-### Authentication
-
-| Method | Endpoint | Description | Authentication |
-|---|---|---|---|
-| POST | `/api/auth/register` | Register a user | Public |
-| POST | `/api/auth/login` | Log in and receive a JWT | Public |
-
-### Jobs
-
-All job endpoints require a valid JWT.
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/jobs` | Create a job |
-| GET | `/api/jobs` | Retrieve jobs |
-| GET | `/api/jobs/{id}` | Retrieve a job by ID |
-| PUT | `/api/jobs/{id}` | Update a job |
-| DELETE | `/api/jobs/{id}` | Delete a job |
-
-Example create-job request:
-
-    {
-      "title": "Software Engineer",
-      "companyName": "Example Company",
-      "description": "Develop and maintain software applications.",
-      "requiredSkills": "C#, ASP.NET Core, SQL Server",
-      "location": "Hyderabad",
-      "employmentType": "Full-time"
-    }
-
-The update endpoint uses the same request fields.
-
-### Resumes
-
-All resume endpoints require a valid JWT.
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/resumes/upload` | Upload a resume |
-| GET | `/api/resumes` | Retrieve the current user's resumes |
-| GET | `/api/resumes/{id}` | Retrieve resume details |
-| GET | `/api/resumes/{id}/download` | Download a resume |
-| DELETE | `/api/resumes/{id}` | Delete a resume |
-
-#### Upload a resume
-
-Send a `multipart/form-data` request to `/api/resumes/upload` with a form field named `File` containing the resume file.
-
-The endpoint has a 6 MB request-size limit.
-
-Example:
-
-    curl -X POST "http://localhost:5175/api/resumes/upload" \
-      -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-      -F "File=@/path/to/your-resume.pdf"
-
-Replace the URL, token, and file path with your local values. Check the application's validation rules for supported file types.
-
-### Resume Matching
-
-All matching endpoints require a valid JWT.
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/matching` | Match a resume against a specific job |
-| GET | `/api/matching/resume/{resumeId}/jobs` | Match a resume against jobs |
-
-Example request to match a resume with a job:
-
-**POST** `/api/matching`
-
-    {
-      "resumeId": 1,
-      "jobId": 1
-    }
-
-The matching response can include:
-
-- Overall match score
-- Skill match score
-- Description relevance score
-- Matching skills
-- Missing skills
-- Individual skill-match details
-- A matching summary
-
-Use valid resume and job IDs accessible to the authenticated user.
-
-### User Profile
-
-All profile endpoints require a valid JWT.
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/profile/me` | Retrieve the current user's profile |
-| PUT | `/api/profile/me` | Update the current user's profile |
-
-Example update request:
-
-    {
-      "fullName": "Alex Johnson"
-    }
-
-## Running Tests
-
-Run the automated tests from the repository root:
-
-    dotnet test ResumeJobMatching.Tests/ResumeJobMatching.Tests.csproj
-
-The test project uses xUnit, ASP.NET Core MVC Testing, and Entity Framework Core InMemory.
-
-## Common Issues
-
-- **Database connection failure:** Check that SQL Server is running and the connection string is correct.
-- **JWT configuration error:** Check the JWT key, issuer, and audience. The signing key must contain at least 32 bytes.
-- **401 Unauthorized:** Log in and include the returned JWT in the `Authorization` header.
-- **404 Not Found:** Verify that the requested resource exists and is accessible to the authenticated user.
-- **Swagger unavailable:** Check that the API is running in the Development environment and use the correct local address.
-
-## Security Notes
-
-- Keep secrets out of source control.
-- Use a strong JWT signing key.
-- Do not commit private resumes or real personal information.
-- Use HTTPS and appropriate security settings in production.
-- Review application configuration before deployment.
-
-## Future Improvements
-
-- Expand automated test coverage.
-- Improve API documentation.
-- Add production logging and monitoring.
-- Implement deployment automation.
+A full-stack enterprise web application that connects job seekers with opportunities using deterministic keyword matching and Google Gemini AI insights. Built with **.NET 10 Web API**, **React 19 (TypeScript & Vite)**, **Microsoft SQL Server**, and containerized with **Docker & Docker Compose**.
 
 ---
 
-Built with C# and ASP.NET Core.
+## Table of Contents
+
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [Project Architecture & Structure](#project-architecture--structure)
+- [Getting Started with Docker](#getting-started-with-docker)
+- [Environment Variables & Configuration](#environment-variables--configuration)
+- [API Reference](#api-reference)
+  - [Authentication](#authentication)
+  - [Resumes](#resumes)
+  - [Jobs](#jobs)
+  - [Resume Matching](#resume-matching)
+  - [Gemini AI Analysis & Analytics](#gemini-ai-analysis--analytics)
+  - [User Profile](#user-profile)
+- [Running Automated Tests](#running-automated-tests)
+- [Troubleshooting & Common Issues](#troubleshooting--common-issues)
+
+---
+
+## Features
+
+- **Authentication & Security**: Secure user registration, login, and profile management with JWT bearer authentication and password hashing.
+- **Resume Management**: Upload PDF and Word (`.docx`) resumes with automatic text parsing using PdfPig and DocumentFormat.OpenXml. Download and delete resumes.
+- **Job Management**: Complete CRUD operations (create, view, update, delete) for job postings with required skills and criteria.
+- **Deterministic Skill Matching**: Rule-based matching engine providing overall match percentages, matching skills, and missing skill gap analysis.
+- **Gemini AI Deep Analysis**:
+  - **Text Narrative**: Detailed strengths, gaps, and recommendations generated by Google Gemini.
+  - **Structured Radar Chart Analytics**: Evaluates candidate fit across 5 key dimensions:
+    - Technical Skills
+    - Experience
+    - Education
+    - Soft Skills
+    - Overall Fit
+  - Actionable interview focus questions and targeted improvements.
+- **Modern Responsive Frontend**:
+  - Interactive Material UI (MUI v7) components with clean typography and dark/light accents.
+  - Live Chart.js Radar Charts visualizing candidate skill profiles.
+  - Dedicated pages for Resume management, Job postings, Candidate Comparison, and Login/Registration.
+- **Full Dockerization**: One-command setup (`docker compose up`) orchestrating the SQL Server database, ASP.NET Core API, and Nginx-powered React SPA with automatic database migrations on startup.
+
+---
+
+## Technology Stack
+
+### Backend
+- **Framework**: ASP.NET Core Web API (.NET 10)
+- **Language**: C# 13
+- **ORM & Database**: Entity Framework Core 10, Microsoft SQL Server 2022
+- **Authentication**: JWT Bearer Authentication (`Microsoft.AspNetCore.Authentication.JwtBearer`)
+- **Document Processing**: `PdfPig` (PDF parsing), `DocumentFormat.OpenXml` (Word DOCX parsing)
+- **AI Integration**: Google Gemini API (`gemini-3.5-flash-lite`) via `HttpClient`
+- **Documentation**: Swagger / OpenAPI (`Swashbuckle.AspNetCore`)
+- **Unit Testing**: xUnit, EF Core InMemory, Microsoft.AspNetCore.Mvc.Testing
+
+### Frontend
+- **Framework**: React 19 with TypeScript
+- **Build Tool**: Vite 7
+- **UI Framework**: Material UI (MUI v7), Emotion, MUI Icons
+- **Data Visualization**: Chart.js & react-chartjs-2 (Radar Charts, Progress Bars)
+- **Routing**: React Router v7
+- **HTTP Client**: Axios with JWT interceptors
+
+### DevOps & Containerization
+- **Docker**: Multi-stage Dockerfiles for backend and frontend
+- **Web Server**: Nginx (Alpine) for serving production React assets and SPA routing
+- **Orchestration**: Docker Compose with health checks and persistent volumes
+
+---
+
+## Project Architecture & Structure
+
+```text
+.
+├── docker-compose.yml              # Multi-container orchestration (DB, API, Frontend)
+├── .env.example                    # Template for environment variables & API keys
+├── .dockerignore                   # Root-level Docker exclusions
+├── README.md                       # Complete documentation
+│
+├── ResumeJobMatching.Api/          # ASP.NET Core 10 Web API
+│   ├── Controllers/                # Auth, Resumes, Jobs, Matching, AI Analysis
+│   ├── Data/                       # ApplicationDbContext and database mappings
+│   ├── DTOs/                       # Strongly-typed request/response models
+│   ├── Migrations/                 # EF Core Code-First database migrations
+│   ├── Models/                     # User, Resume, Job, and Match entities
+│   ├── Services/                   # Business logic (AI, Auth, Matching, Resume parsing)
+│   ├── Dockerfile                  # Multi-stage .NET 10 SDK & runtime container build
+│   ├── Program.cs                  # Pipeline, DI, auto-migration, CORS, and JWT setup
+│   └── appsettings.json            # Configuration template
+│
+├── frontend/                       # React 19 + TypeScript + Vite SPA
+│   ├── src/
+│   │   ├── api/                    # Axios API client and service endpoints
+│   │   ├── components/             # Reusable UI widgets and navigation layouts
+│   │   ├── pages/                  # ComparePage, JobsPage, ResumesPage, LoginPage
+│   │   └── types/                  # TypeScript interface definitions
+│   ├── Dockerfile                  # Multi-stage Node.js build & Nginx production server
+│   ├── nginx.conf                  # Nginx configuration (SPA routing & reverse proxy)
+│   └── package.json                # Frontend package dependencies & scripts
+│
+├── ResumeJobMatching.Tests/        # Automated backend unit and integration tests
+└── MatchingDebug/                  # Development testing utility
+```
+
+---
+
+## Getting Started with Docker
+
+Run the entire application (SQL Server, Backend, and Frontend) in isolated containers with a single command.
+
+### 1. Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
+
+### 2. Configure Environment Variables
+In the repository root, create your `.env` file from the example:
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and provide your Google Gemini API Key:
+```env
+# SQL Server SA Password
+MSSQL_SA_PASSWORD=Password123!
+
+# Google Gemini API Key (Required for AI analysis & radar charts)
+GEMINI_API_KEY=your_actual_gemini_api_key_here
+
+# JWT Signing Key (Minimum 32 bytes)
+JWT_KEY=BpBAWBrFT7nOhBx7qfPHKOOBifmpNe2qJrRPtV389A=
+```
+
+### 3. Build and Start the Containers
+
+```bash
+docker compose up --build
+```
+
+Docker will:
+1. Start Microsoft SQL Server 2022 on container port `1433` (mapped to host port `1434` to prevent collisions with any local SQL Server).
+2. Wait for SQL Server to be healthy, then launch the ASP.NET Core API on port `5175`.
+3. Automatically apply all database migrations on startup.
+4. Compile the React frontend and serve it with Nginx on port `5173`.
+
+### 4. Access the Application
+
+| Service | URL | Notes |
+| :--- | :--- | :--- |
+| **Frontend Web App** | [http://localhost:5173](http://localhost:5173) | Main user interface |
+| **Backend Swagger API** | [http://localhost:5175/swagger](http://localhost:5175/swagger) | Interactive API documentation |
+| **SQL Server Database** | `localhost,1434` | Connect via SSMS (`sa` / `Password123!`) |
+
+To stop all containers:
+```bash
+docker compose down
+```
+*(All uploaded resumes and database records are preserved in persistent Docker volumes).*
+
+---
+
+## Environment Variables & Configuration
+
+The application reads configuration from environment variables defined in `.env` and passed to containers via `docker-compose.yml`:
+
+| Key | Description | Default / Example |
+| :--- | :--- | :--- |
+| `ConnectionStrings:DefaultConnection` | SQL Server connection string | `Server=localhost;Database=ResumeJobMatchingDb;...` |
+| `Gemini:ApiKey` | Google Gemini API key for AI features | *(Your API key)* |
+| `Gemini:Model` | Gemini model name | `gemini-3.5-flash-lite` |
+| `Jwt:Key` | Symmetric secret key for signing tokens | Minimum 32-byte string |
+| `Jwt:Issuer` | JWT token issuer | `ResumeJobMatching.Api` |
+| `Jwt:Audience` | JWT token target audience | `ResumeJobMatching.Client` |
+| `Jwt:ExpiresMinutes` | JWT token expiration time | `60` |
+
+---
+
+## API Reference
+
+All requests requiring authentication must include the Bearer token in the `Authorization` header:
+```http
+Authorization: Bearer <your_jwt_token>
+```
+
+### Authentication
+| Method | Endpoint | Description | Auth |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | Register a new user | Public |
+| `POST` | `/api/auth/login` | Login and receive a JWT token | Public |
+
+### Resumes
+| Method | Endpoint | Description | Auth |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/resumes/upload` | Upload resume file (`multipart/form-data`, PDF/DOCX up to 6MB) | Required |
+| `GET` | `/api/resumes` | List all resumes for authenticated user | Required |
+| `GET` | `/api/resumes/{id}` | Get specific resume details and parsed text | Required |
+| `GET` | `/api/resumes/{id}/download`| Download original resume file | Required |
+| `DELETE` | `/api/resumes/{id}` | Delete resume and associated storage | Required |
+
+### Jobs
+| Method | Endpoint | Description | Auth |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/jobs` | Create a job posting | Required |
+| `GET` | `/api/jobs` | Retrieve all job postings | Required |
+| `GET` | `/api/jobs/{id}` | Retrieve single job by ID | Required |
+| `PUT` | `/api/jobs/{id}` | Update job title, skills, description, location | Required |
+| `DELETE` | `/api/jobs/{id}` | Delete a job posting | Required |
+
+### Resume Matching
+| Method | Endpoint | Description | Auth |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/matching` | Compare a specific resume against a job | Required |
+| `GET` | `/api/matching/resume/{resumeId}/jobs` | Rank all active jobs against a resume | Required |
+
+### Gemini AI Analysis & Analytics
+| Method | Endpoint | Description | Auth |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/ai-analysis` | Generates narrative feedback using Gemini AI | Required |
+| `POST` | `/api/ai-analysis/analytics` | Generates structured 5-dimension radar scores, verdict, strengths, gaps, and interview prep | Required |
+
+#### Example AI Analytics Request:
+```json
+POST /api/ai-analysis/analytics
+{
+  "resumeId": 1,
+  "jobId": 3
+}
+```
+
+#### Example AI Analytics Response:
+```json
+{
+  "categoryScores": {
+    "technical": 85,
+    "experience": 75,
+    "education": 90,
+    "softSkills": 80,
+    "overallFit": 82
+  },
+  "verdict": "Strong Candidate",
+  "summary": "Candidate displays strong technical capabilities in C# and SQL Server...",
+  "strengths": [
+    "Proficient in ASP.NET Core Web API architecture",
+    "Experience with Entity Framework Core migrations"
+  ],
+  "improvements": [
+    "Gain exposure to cloud deployments (Docker, Kubernetes)",
+    "Highlight automated testing experience in resume"
+  ],
+  "interviewFocusAreas": [
+    "Ask about handling concurrency in Entity Framework Core",
+    "Explore past experience optimizing SQL queries"
+  ]
+}
+```
+

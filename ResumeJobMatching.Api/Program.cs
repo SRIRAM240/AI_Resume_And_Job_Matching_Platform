@@ -116,7 +116,14 @@ builder.Services.AddCors(options =>
     options.AddPolicy("Frontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173")
+            .SetIsOriginAllowed(origin =>
+            {
+                if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    return uri.Host == "localhost" || uri.Host == "127.0.0.1";
+                }
+                return false;
+            })
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -124,6 +131,40 @@ builder.Services.AddCors(options =>
 
 // Build application
 var app = builder.Build();
+
+// Automatically apply database migrations on startup (with container retry)
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    var db = services.GetRequiredService<ApplicationDbContext>();
+
+    if (db.Database.IsRelational())
+    {
+        var retries = 5;
+        while (retries > 0)
+        {
+            try
+            {
+                logger.LogInformation("Checking database and applying migrations...");
+                db.Database.Migrate();
+                logger.LogInformation("Database is ready and up to date.");
+                break;
+            }
+            catch (Exception ex)
+            {
+                retries--;
+                logger.LogWarning("Database connection not ready. Retrying in 3s ({0} attempts left)... Error: {1}", retries, ex.Message);
+                if (retries == 0)
+                {
+                    logger.LogError(ex, "Failed to apply database migrations after multiple attempts.");
+                    throw;
+                }
+                Thread.Sleep(3000);
+            }
+        }
+    }
+}
 
 // Configure HTTP request pipeline
 // Configure HTTP request pipeline
