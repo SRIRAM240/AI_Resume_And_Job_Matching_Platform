@@ -77,7 +77,6 @@ export default function ProfilePage() {
                   label="Email address"
                   value={profile?.email ?? user?.email ?? ''}
                   disabled
-                  helperText="Email changes are not supported by the current profile API."
                 />
                 <TextField
                   label="Member since"

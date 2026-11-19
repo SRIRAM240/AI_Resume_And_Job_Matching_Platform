@@ -43,3 +43,6 @@ ResumeJobMatching.Api/appsettings.*.local.json
 
 # Temporary skill matcher project
 SkillMatcherCheck/
+
+# Deployment documentation (local reference)
+AZURE_DEPLOYMENT_CHANGES.md

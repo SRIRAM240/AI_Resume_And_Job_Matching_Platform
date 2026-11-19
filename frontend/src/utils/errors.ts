@@ -6,8 +6,12 @@ export function getErrorMessage(error: unknown, fallback: string): string {
     const data = error.response?.data;
     if (typeof data === 'string' && data.trim()) return data;
     if (data && typeof data === 'object') {
-      const apiError = data as ApiError;
-      if (apiError.message) return apiError.message;
+      const apiError = data as ApiError & { details?: string };
+      if (apiError.message) {
+        return apiError.details
+          ? `${apiError.message} (${apiError.details})`
+          : apiError.message;
+      }
       if (apiError.title) return apiError.title;
       if (apiError.errors) {
         const first = Object.values(apiError.errors).flat()[0];

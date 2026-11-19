@@ -59,7 +59,10 @@ public class GeminiAiService
         }
 
         var apiKey = _configuration["Gemini:ApiKey"];
-        var model = _configuration["Gemini:Model"] ?? "gemini-2.5-flash";
+        var rawModel = _configuration["Gemini:Model"];
+        var model = string.IsNullOrWhiteSpace(rawModel)
+            ? "gemini-3.5-flash-lite"
+            : rawModel.Trim().ToLowerInvariant().Replace(" ", "-");
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -318,7 +321,8 @@ public class GeminiAiService
         object requestBody,
         CancellationToken cancellationToken)
     {
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
+        var encodedKey = Uri.EscapeDataString(apiKey);
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={encodedKey}";
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Add("x-goog-api-key", apiKey);
@@ -328,7 +332,8 @@ public class GeminiAiService
 
         if (!response.IsSuccessStatusCode)
         {
-            throw new HttpRequestException($"Gemini API returned HTTP {(int)response.StatusCode}.");
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException($"Gemini API returned HTTP {(int)response.StatusCode}: {errorBody}");
         }
 
         await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);

@@ -61,14 +61,15 @@ public class AiAnalysisController : ControllerBase
                 message = ex.Message
             });
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
             return StatusCode(
                 StatusCodes.Status502BadGateway,
                 new
                 {
                     message =
-                        "The AI provider request failed. Check the API configuration and server logs."
+                        "The AI provider request failed. Check the API configuration and server logs.",
+                    details = ex.Message
                 });
         }
         catch (JsonException)
@@ -124,14 +125,15 @@ public class AiAnalysisController : ControllerBase
                 message = ex.Message
             });
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
             return StatusCode(
                 StatusCodes.Status502BadGateway,
                 new
                 {
                     message =
-                        "The AI provider request failed. Check the API configuration and server logs."
+                        "The AI provider request failed. Check the API configuration and server logs.",
+                    details = ex.Message
                 });
         }
         catch (JsonException)

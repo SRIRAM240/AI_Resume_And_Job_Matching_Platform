@@ -113,6 +113,8 @@ builder.Services.AddHttpClient<GeminiAiService>();
 
 builder.Services.AddCors(options =>
 {
+    var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+
     options.AddPolicy("Frontend", policy =>
     {
         policy
@@ -120,7 +122,11 @@ builder.Services.AddCors(options =>
             {
                 if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
                 {
-                    return uri.Host == "localhost" || uri.Host == "127.0.0.1";
+                    // Allow localhost/loopback for local dev, *.azurestaticapps.net, and any custom configured origins
+                    return uri.Host == "localhost"
+                        || uri.Host == "127.0.0.1"
+                        || uri.Host.EndsWith(".azurestaticapps.net", StringComparison.OrdinalIgnoreCase)
+                        || configuredOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase);
                 }
                 return false;
             })
@@ -141,7 +147,7 @@ using (var scope = app.Services.CreateScope())
 
     if (db.Database.IsRelational())
     {
-        var retries = 5;
+        var retries = 10;
         while (retries > 0)
         {
             try
@@ -166,7 +172,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Configure HTTP request pipeline
 // Configure HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
