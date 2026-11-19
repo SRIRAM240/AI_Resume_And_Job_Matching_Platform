@@ -4,7 +4,7 @@ export const TOKEN_KEY = 'resume_match_token';
 export const USER_KEY = 'resume_match_user';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://ats-resume-checker-eefka6d7ducrbua5.centralindia-01.azurewebsites.net',
+  baseURL: 'https://ats-resume-checker-eefka6d7ducrbua5.centralindia-01.azurewebsites.net',
   timeout: 30000,
 });
 
